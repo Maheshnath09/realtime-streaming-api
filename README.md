@@ -152,40 +152,41 @@ The **Real-Time Streaming API** is a high-performance, production-ready solution
 
 ```mermaid
 flowchart TB
-    subgraph Producers["🏭 Event Producers"]
-        EP[Event Producer<br/>Generates metrics, logs, alerts]
-        HP[Heartbeat Producer<br/>30-second intervals]
+    subgraph Producers["Event Producers"]
+        EP["Event Producer - Generates metrics, logs, alerts"]
+        HP["Heartbeat Producer - 30 second intervals"]
     end
 
-    subgraph Manager["📡 Stream Manager"]
-        BC[Broadcast Engine]
-        REG[Client Registry<br/>Dictionary of Queues]
-        BP[Backpressure Handler]
+    subgraph Manager["Stream Manager"]
+        BC["Broadcast Engine"]
+        REG["Client Registry - Dictionary of Queues"]
+        BP["Backpressure Handler"]
     end
 
-    subgraph Clients["👥 Connected Clients"]
-        C1[("Client #1<br/>Queue[100]")]
-        C2[("Client #2<br/>Queue[100]")]
-        CN[("Client #N<br/>Queue[100]")]
+    subgraph Clients["Connected Clients"]
+        C1[("Client 1 - Queue 100")]
+        C2[("Client 2 - Queue 100")]
+        CN[("Client N - Queue 100")]
     end
 
-    subgraph API["🌐 FastAPI Endpoints"]
-        ROOT["GET /<br/>Health Check"]
-        HEALTH["GET /health<br/>Detailed Status"]
-        STREAM["GET /stream<br/>SSE Endpoint"]
+    subgraph API["FastAPI Endpoints"]
+        ROOT["GET / - Health Check"]
+        HEALTH["GET /health - Detailed Status"]
+        STREAM["GET /stream - SSE Endpoint"]
     end
 
     EP -->|StreamEvent| BC
     HP -->|StreamEvent| BC
     BC -->|put_nowait| REG
-    REG -->|O(1) per client| C1
-    REG -->|O(1) per client| C2
-    REG -->|O(1) per client| CN
+    REG -->|O-1 per client| C1
+    REG -->|O-1 per client| C2
+    REG -->|O-1 per client| CN
     BP -.->|Disconnect slow clients| REG
     STREAM <-->|EventSource| C1
     STREAM <-->|EventSource| C2
     STREAM <-->|EventSource| CN
 ```
+
 
 ### Event Processing Flow
 
