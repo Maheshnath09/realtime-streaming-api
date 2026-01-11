@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSE Real-Time Stream</title>
+    <style>
+        body { font-family: Arial; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .connect { background: #4CAF50; color: white; }
+        .disconnect { background: #f44336; color: white; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; font-weight: bold; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .events { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fafafa; }
+        .event { padding: 10px; margin: 5px 0; border-radius: 4px; border-left: 4px solid #2196F3; background: white; }
+        .event.heartbeat { border-left-color: #FF9800; opacity: 0.7; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
+        .stat-card { background: #f0f0f0; padding: 15px; border-radius: 4px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 Real-Time SSE Stream</h1>
+        <div>
+            <button class="connect" onclick="connect()">Connect</button>
+            <button class="disconnect" onclick="disconnect()">Disconnect</button>
+            <button onclick="clearEvents()">Clear</button>
+        </div>
+        <div id="status" class="status disconnected">Disconnected</div>
+        <div class="stats">
+            <div class="stat-card"><div class="stat-value" id="eventCount">0</div><div>Events</div></div>
+            <div class="stat-card"><div class="stat-value" id="heartbeatCount">0</div><div>Heartbeats</div></div>
+            <div class="stat-card"><div class="stat-value" id="reconnectCount">0</div><div>Reconnects</div></div>
+        </div>
+        <h3>Event Stream</h3>
+        <div id="events" class="events"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let eventCount = 0, heartbeatCount = 0, reconnectCount = 0;
+
+        function connect() {
+            if (eventSource) return;
+            eventSource = new EventSource('http://localhost:8000/stream');
+            
+            eventSource.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+            };
+            
+            eventSource.addEventListener('data', (e) => {
+                eventCount++;
+                updateStats();
+                addEvent('data', e.lastEventId, JSON.parse(e.data));
+            });
+            
+            eventSource.addEventListener('heartbeat', (e) => {
+                heartbeatCount++;
+                updateStats();
+                addEvent('heartbeat', e.lastEventId, JSON.parse(e.data));
+            });
+            
+            eventSource.onerror = () => {
+                if (eventSource.readyState === EventSource.CONNECTING) {
+                    reconnectCount++;
+                    updateStats();
+                } else {
+                    document.getElementById('status').textContent = 'Disconnected';
+                    document.getElementById('status').className = 'status disconnected';
+                    eventSource = null;
+                }
+            };
+        }
+
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('eventCount').textContent = eventCount;
+            document.getElementById('heartbeatCount').textContent = heartbeatCount;
+            document.getElementById('reconnectCount').textContent = reconnectCount;
+        }
+
+        function addEvent(type, id, data) {
+            const el = document.createElement('div');
+            el.className = `event ${type}`;
+            el.innerHTML = `<strong>${type.toUpperCase()}</strong> ${new Date().toLocaleTimeString()}<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            document.getElementById('events').insertBefore(el, document.getElementById('events').firstChild);
+            while (document.getElementById('events').children.length > 50) {
+                document.getElementById('events').removeChild(document.getElementById('events').lastChild);
+            }
+        }
+
+        function clearEvents() {
+            document.getElementById('events').innerHTML = '';
+            eventCount = heartbeatCount = reconnectCount = 0;
+            updateStats();
+        }
+
+        window.onload = connect;
+        window.onbeforeunload = disconnect;
+    </script>
+</body>
+</html>
