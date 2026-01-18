@@ -1,0 +1,51 @@
+# Real-Time Streaming API - Docker Compose
+# Run with: docker-compose up -d
+
+version: '3.8'
+
+services:
+  streaming-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: realtime-streaming-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    # Mount for development (optional - uncomment if needed)
+    # volumes:
+    #   - .:/app
+    #   - /app/__pycache__
+    networks:
+      - streaming-network
+
+networks:
+  streaming-network:
+    driver: bridge
+
+# Optional: Add Redis for horizontal scaling (future use)
+# redis:
+#   image: redis:7-alpine
+#   container_name: streaming-redis
+#   ports:
+#     - "6379:6379"
+#   networks:
+#     - streaming-network
