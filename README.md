@@ -493,6 +493,7 @@ List all connected clients with their metadata.
         }
     ]
 }
+```
 
 ### GET `/stream`
 
