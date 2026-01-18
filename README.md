@@ -1,13 +1,19 @@
 <p align="center">
   <h1 align="center">🔴 Real-Time Streaming API</h1>
   <p align="center">
-    <strong>Production-ready Server-Sent Events (SSE) streaming system built with FastAPI and async event buffers</strong>
+    <strong>Production-ready SSE streaming with event replay, topic subscriptions, and client metadata</strong>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/Python-3.11+-blue?style=flat-square&logo=python" alt="Python">
     <img src="https://img.shields.io/badge/FastAPI-0.109.0-green?style=flat-square&logo=fastapi" alt="FastAPI">
+    <img src="https://img.shields.io/badge/Version-1.2.0-purple?style=flat-square" alt="Version">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/Status-Production--Ready-brightgreen?style=flat-square" alt="Status">
+  </p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/✓_CORS-enabled-success?style=flat-square" alt="CORS">
+    <img src="https://img.shields.io/badge/✓_Topics-filtering-success?style=flat-square" alt="Topics">
+    <img src="https://img.shields.io/badge/✓_Event_Replay-Last--Event--ID-success?style=flat-square" alt="Replay">
+    <img src="https://img.shields.io/badge/✓_Client_Metadata-tags-success?style=flat-square" alt="Metadata">
   </p>
 </p>
 
@@ -82,7 +88,35 @@ The **Real-Time Streaming API** is a high-performance, production-ready solution
 - ✅ **Retry Directive** - Auto-reconnect timing (5000ms default)
 - ✅ **JSON Data** - Structured event payloads
 
----
+### 🆕 v1.2 Features
+
+| Feature | Description | Usage |
+|---------|-------------|-------|
+| **🔐 CORS** | Cross-origin requests enabled | Works with any frontend domain |
+| **📡 Topic Subscriptions** | Filter events by type | `?topics=metric,alert` |
+| **🏷️ Client Metadata** | Name and tag clients | `?client_name=dashboard&tags=prod` |
+| **🔁 Event Replay** | Resume after disconnect | `Last-Event-ID` header (automatic) |
+
+#### Topic Subscriptions
+```bash
+# Only receive metrics and alerts
+curl "http://localhost:8000/stream?topics=metric,alert"
+```
+
+#### Client Metadata
+```bash
+# Identify your client with name and tags
+curl "http://localhost:8000/stream?client_name=dashboard-1&tags=production,finance"
+```
+
+#### Event Replay (Last-Event-ID)
+```
+# Browser sends this automatically on reconnect
+Last-Event-ID: abc-123
+
+# Server replays all events after that ID
+# No missed events during brief disconnections!
+```
 
 ## 🏗️ Architecture
 
@@ -261,9 +295,11 @@ uvicorn main:app --reload
 # The server starts at http://localhost:8000
 ```
 
-### 3. Connect a Client
+### 3. Open the Demo
 
-Open `examples/browser_client.html` in your browser, or use curl:
+Open **http://localhost:8000/demo** in your browser to see the interactive UI!
+
+Or use curl:
 
 ```bash
 curl -N -H "Accept: text/event-stream" http://localhost:8000/stream
@@ -395,35 +431,41 @@ es.onerror = (e) => {
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Health check with client count |
-| `GET` | `/health` | Detailed health status |
-| `GET` | `/stream` | SSE event stream |
+| `GET` | `/` | Server status with version and features |
+| `GET` | `/health` | Detailed health with history size |
+| `GET` | `/clients` | List all connected clients with metadata |
+| `GET` | `/stream` | SSE event stream with filtering |
 
 ### GET `/`
 
-Returns basic server status.
+Returns server status with version and enabled features.
 
 **Response:**
 ```json
 {
     "status": "running",
+    "version": "1.2.0",
     "clients": 5,
+    "history_size": 342,
     "endpoints": {
         "stream": "/stream",
-        "health": "/health"
-    }
+        "health": "/health",
+        "clients": "/clients"
+    },
+    "features": ["cors", "topic_subscriptions", "client_metadata", "event_replay"]
 }
 ```
 
 ### GET `/health`
 
-Returns detailed health information.
+Returns detailed health information including event history size.
 
 **Response:**
 ```json
 {
     "status": "healthy",
     "connected_clients": 5,
+    "event_history_size": 342,
     "producers": {
         "event_producer": "running",
         "heartbeat_producer": "running"
@@ -431,13 +473,53 @@ Returns detailed health information.
 }
 ```
 
+### GET `/clients`
+
+List all connected clients with their metadata.
+
+**Response:**
+```json
+{
+    "count": 2,
+    "clients": [
+        {
+            "client_id": "abc-123",
+            "client_name": "main-dashboard",
+            "tags": ["production", "finance"],
+            "topics": ["metric", "alert"],
+            "connected_at": "2024-01-18T10:30:00",
+            "events_received": 156,
+            "queue_size": 3
+        }
+    ]
+}
+
 ### GET `/stream`
 
-Opens an SSE connection and streams events.
+Opens an SSE connection and streams events with optional filtering.
 
-**Headers Required:**
-```
-Accept: text/event-stream
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `topics` | string | Comma-separated topics: `metric,log,alert,heartbeat` |
+| `client_name` | string | Human-readable client identifier |
+| `tags` | string | Comma-separated tags for grouping |
+
+**Request Headers:**
+
+| Header | Description |
+|--------|-------------|
+| `Accept` | `text/event-stream` (required) |
+| `Last-Event-ID` | Resume from this event ID (automatic on reconnect) |
+
+**Example Requests:**
+```bash
+# Basic stream (all events)
+curl -N -H "Accept: text/event-stream" http://localhost:8000/stream
+
+# Filtered stream with metadata
+curl -N "http://localhost:8000/stream?topics=metric,alert&client_name=my-dashboard&tags=prod"
 ```
 
 **Response Headers:**
@@ -447,23 +529,6 @@ Cache-Control: no-cache
 Connection: keep-alive
 X-Accel-Buffering: no
 ```
-
-**Event Format:**
-```
-id: <uuid>
-event: <data|heartbeat|system>
-data: <json-payload>
-retry: 5000
-
-```
-
-### Event Types
-
-| Type | Description | Example Data |
-|------|-------------|--------------|
-| `data` | Application events | `{"type": "metric", "name": "cpu_usage", "value": 75.5}` |
-| `heartbeat` | Keep-alive signals | `{"timestamp": "2024-01-01T12:00:00", "clients": 5}` |
-| `system` | System notifications | `{"message": "Server restarting"}` |
 
 ---
 
@@ -601,8 +666,9 @@ pytest test_streaming.py::test_broadcast_to_multiple_clients -v
 pytest test_streaming.py --cov=app --cov-report=html
 ```
 
-### Test Cases
+### Test Cases (17 Total)
 
+**Core Tests:**
 | Test | Description |
 |------|-------------|
 | `test_stream_manager_registration` | Client register/unregister |
@@ -613,6 +679,23 @@ pytest test_streaming.py --cov=app --cov-report=html
 | `test_heartbeat_producer` | Heartbeat generation |
 | `test_concurrent_clients` | 100+ concurrent connections |
 | `test_context_manager` | Resource cleanup |
+
+**v1.2 Tests (Client Metadata):**
+| Test | Description |
+|------|-------------|
+| `test_client_metadata` | Registration with name/tags |
+| `test_get_all_clients_info` | List all clients |
+| `test_client_info_events_received_counter` | Event counting |
+| `test_context_manager_with_metadata` | Context manager with params |
+| `test_anonymous_client_default_name` | Default name handling |
+
+**v1.2 Tests (Event Replay):**
+| Test | Description |
+|------|-------------|
+| `test_event_history_basic` | Buffer stores events |
+| `test_event_history_get_events_after` | Retrieve events after ID |
+| `test_event_history_ring_buffer_overflow` | Old events discarded |
+| `test_replay_events_to_queue` | Replay to client queue |
 
 ### Manual Testing
 

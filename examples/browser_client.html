@@ -1,71 +1,431 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>SSE Real-Time Stream</title>
+    <title>SSE Real-Time Stream v1.1</title>
     <style>
-        body { font-family: Arial; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        .container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
-        .connect { background: #4CAF50; color: white; }
-        .disconnect { background: #f44336; color: white; }
-        .status { padding: 10px; border-radius: 4px; margin: 10px 0; font-weight: bold; }
-        .status.connected { background: #d4edda; color: #155724; }
-        .status.disconnected { background: #f8d7da; color: #721c24; }
-        .events { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #fafafa; }
-        .event { padding: 10px; margin: 5px 0; border-radius: 4px; border-left: 4px solid #2196F3; background: white; }
-        .event.heartbeat { border-left-color: #FF9800; opacity: 0.7; }
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px 0; }
-        .stat-card { background: #f0f0f0; padding: 15px; border-radius: 4px; text-align: center; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #2196F3; }
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h1 span {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .config-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .config-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .config-group label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .config-group input,
+        .config-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .config-group input:focus,
+        .config-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .checkbox-group label:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .checkbox-group input:checked+span {
+            color: #4CAF50;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .connect {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .connect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .disconnect {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+        }
+
+        .disconnect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+        }
+
+        .clear {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status.connected {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .status.disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        .status::before {
+            content: '●';
+            font-size: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        h3 {
+            color: #fff;
+            margin: 20px 0 12px;
+            font-size: 16px;
+        }
+
+        .events {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .events::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .events::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .events::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .event {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            background: rgba(255, 255, 255, 0.05);
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        .event.heartbeat {
+            border-left-color: #FF9800;
+            opacity: 0.7;
+        }
+
+        .event.metric {
+            border-left-color: #4CAF50;
+        }
+
+        .event.log {
+            border-left-color: #2196F3;
+        }
+
+        .event.alert {
+            border-left-color: #f44336;
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .event-type {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+
+        .event-time {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .event pre {
+            margin: 0;
+            white-space: pre-wrap;
+            color: #ccc;
+        }
+
+        .version {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 20px;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <h1>🔴 Real-Time SSE Stream</h1>
-        <div>
-            <button class="connect" onclick="connect()">Connect</button>
-            <button class="disconnect" onclick="disconnect()">Disconnect</button>
-            <button onclick="clearEvents()">Clear</button>
+        <h1><span>🔴</span> Real-Time SSE Stream <small style="font-size: 14px; color: #666;">v1.1</small></h1>
+
+        <div class="config-section">
+            <div class="config-row">
+                <div class="config-group">
+                    <label>Client Name</label>
+                    <input type="text" id="clientName" placeholder="e.g., main-dashboard" value="browser-client">
+                </div>
+                <div class="config-group">
+                    <label>Tags (comma-separated)</label>
+                    <input type="text" id="clientTags" placeholder="e.g., dashboard, production">
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Subscribe to Topics</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" class="topic" value="metric" checked><span>📊 Metrics</span></label>
+                    <label><input type="checkbox" class="topic" value="log" checked><span>📝 Logs</span></label>
+                    <label><input type="checkbox" class="topic" value="alert" checked><span>🚨 Alerts</span></label>
+                    <label><input type="checkbox" class="topic" value="heartbeat"><span>💓 Heartbeat</span></label>
+                </div>
+            </div>
+            <div class="buttons">
+                <button class="connect" onclick="connect()">▶ Connect</button>
+                <button class="disconnect" onclick="disconnect()">⏹ Disconnect</button>
+                <button class="clear" onclick="clearEvents()">🗑 Clear</button>
+            </div>
         </div>
+
         <div id="status" class="status disconnected">Disconnected</div>
+
         <div class="stats">
-            <div class="stat-card"><div class="stat-value" id="eventCount">0</div><div>Events</div></div>
-            <div class="stat-card"><div class="stat-value" id="heartbeatCount">0</div><div>Heartbeats</div></div>
-            <div class="stat-card"><div class="stat-value" id="reconnectCount">0</div><div>Reconnects</div></div>
+            <div class="stat-card">
+                <div class="stat-value" id="eventCount">0</div>
+                <div class="stat-label">Events</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="heartbeatCount">0</div>
+                <div class="stat-label">Heartbeats</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="reconnectCount">0</div>
+                <div class="stat-label">Reconnects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="filteredCount">0</div>
+                <div class="stat-label">Filtered</div>
+            </div>
         </div>
-        <h3>Event Stream</h3>
+
+        <h3>📡 Event Stream</h3>
         <div id="events" class="events"></div>
+
+        <div class="version">Real-Time Streaming API v1.2 • CORS ✓ • Topic Subscriptions ✓ • Client Metadata ✓ • Event
+            Replay ✓</div>
     </div>
 
     <script>
         let eventSource = null;
-        let eventCount = 0, heartbeatCount = 0, reconnectCount = 0;
+        let eventCount = 0, heartbeatCount = 0, reconnectCount = 0, filteredCount = 0;
+
+        function getSelectedTopics() {
+            const checkboxes = document.querySelectorAll('.topic:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function buildStreamUrl() {
+            const clientName = document.getElementById('clientName').value.trim();
+            const tags = document.getElementById('clientTags').value.trim();
+            const topics = getSelectedTopics();
+
+            // Use relative URL - works both locally and when deployed
+            const baseUrl = window.location.origin;
+            let url = `${baseUrl}/stream?`;
+            const params = [];
+
+            if (clientName) params.push(`client_name=${encodeURIComponent(clientName)}`);
+            if (tags) params.push(`tags=${encodeURIComponent(tags)}`);
+            if (topics.length > 0 && topics.length < 4) {
+                params.push(`topics=${encodeURIComponent(topics.join(','))}`);
+            }
+
+            return url + params.join('&');
+        }
 
         function connect() {
             if (eventSource) return;
-            eventSource = new EventSource('http://localhost:8000/stream');
-            
+
+            const url = buildStreamUrl();
+            console.log('Connecting to:', url);
+            eventSource = new EventSource(url);
+
             eventSource.onopen = () => {
                 document.getElementById('status').textContent = 'Connected';
                 document.getElementById('status').className = 'status connected';
             };
-            
+
             eventSource.addEventListener('data', (e) => {
                 eventCount++;
                 updateStats();
-                addEvent('data', e.lastEventId, JSON.parse(e.data));
+                const data = JSON.parse(e.data);
+                addEvent(data.type || 'data', e.lastEventId, data);
             });
-            
+
             eventSource.addEventListener('heartbeat', (e) => {
                 heartbeatCount++;
                 updateStats();
                 addEvent('heartbeat', e.lastEventId, JSON.parse(e.data));
             });
-            
+
             eventSource.onerror = () => {
                 if (eventSource.readyState === EventSource.CONNECTING) {
                     reconnectCount++;
                     updateStats();
+                    document.getElementById('status').textContent = 'Reconnecting...';
                 } else {
                     document.getElementById('status').textContent = 'Disconnected';
                     document.getElementById('status').className = 'status disconnected';
@@ -87,26 +447,34 @@
             document.getElementById('eventCount').textContent = eventCount;
             document.getElementById('heartbeatCount').textContent = heartbeatCount;
             document.getElementById('reconnectCount').textContent = reconnectCount;
+            document.getElementById('filteredCount').textContent = filteredCount;
         }
 
         function addEvent(type, id, data) {
             const el = document.createElement('div');
             el.className = `event ${type}`;
-            el.innerHTML = `<strong>${type.toUpperCase()}</strong> ${new Date().toLocaleTimeString()}<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
-            document.getElementById('events').insertBefore(el, document.getElementById('events').firstChild);
-            while (document.getElementById('events').children.length > 50) {
-                document.getElementById('events').removeChild(document.getElementById('events').lastChild);
+            el.innerHTML = `
+                <div class="event-header">
+                    <span class="event-type">${type}</span>
+                    <span class="event-time">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            const container = document.getElementById('events');
+            container.insertBefore(el, container.firstChild);
+            while (container.children.length > 50) {
+                container.removeChild(container.lastChild);
             }
         }
 
         function clearEvents() {
             document.getElementById('events').innerHTML = '';
-            eventCount = heartbeatCount = reconnectCount = 0;
+            eventCount = heartbeatCount = reconnectCount = filteredCount = 0;
             updateStats();
         }
 
-        window.onload = connect;
-        window.onbeforeunload = disconnect;
+        // Don't auto-connect, let user configure first
     </script>
 </body>
+
 </html>
