@@ -4,25 +4,16 @@
 services:
   - type: web
     name: realtime-streaming-api
-    runtime: python
+    env: python
     plan: free
     
     # Build settings
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     
-    # Environment variables
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.11"
-      - key: LOG_LEVEL
-        value: INFO
-    
     # Health check
     healthCheckPath: /health
     
     # Auto-deploy on push to main
     autoDeploy: true
-    
-    # Branch to deploy
-    branch: main
+
